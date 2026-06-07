@@ -15,6 +15,10 @@ Free neon arcade collection for iOS and Android. Built with Vite, TypeScript, an
 - River Hopper
 - Star Squadron
 
+## Play online
+
+[ronparada.github.io/retro-games](https://ronparada.github.io/retro-games/)
+
 ## Run locally
 
 ```bash
