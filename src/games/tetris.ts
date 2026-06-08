@@ -45,8 +45,20 @@ export const createTetris: GameFactory = () => {
   let score = 0;
   let level = 1;
   let dropTimer = 0;
-  let dropInterval = 0.8;
+  let dropInterval = 1;
   let status: GameState['status'] = 'idle';
+
+  let leftRepeat = 0;
+  let rightRepeat = 0;
+  let downRepeat = 0;
+  let wasLeft = false;
+  let wasRight = false;
+  let wasUp = false;
+  let wasDown = false;
+
+  const DAS_DELAY = 0.15;
+  const MOVE_REPEAT = 0.05;
+  const SOFT_DROP_REPEAT = 0.08;
 
   function emit(): void {
     onStateChange({
@@ -112,7 +124,7 @@ export const createTetris: GameFactory = () => {
       score += points;
       if (score >= level * 1000) {
         level++;
-        dropInterval = Math.max(0.15, 0.8 - (level - 1) * 0.07);
+        dropInterval = Math.max(0.25, 1 - (level - 1) * 0.05);
       }
       emit();
     }
@@ -125,11 +137,64 @@ export const createTetris: GameFactory = () => {
     spawn();
   }
 
+  function tryMove(dx: number): void {
+    px += dx;
+    if (collides()) px -= dx;
+  }
+
+  function softDrop(): void {
+    py++;
+    if (collides()) {
+      py--;
+      merge();
+      clearLines();
+      spawn();
+    }
+  }
+
+  function handleHorizontal(dir: 'left' | 'right', dt: number): void {
+    const held = dir === 'left' ? input.isLeft() : input.isRight();
+    const was = dir === 'left' ? wasLeft : wasRight;
+    let repeat = dir === 'left' ? leftRepeat : rightRepeat;
+    const dx = dir === 'left' ? -1 : 1;
+
+    if (held && !was) {
+      tryMove(dx);
+      repeat = -DAS_DELAY;
+    } else if (held) {
+      repeat += dt;
+      if (repeat >= MOVE_REPEAT) {
+        tryMove(dx);
+        repeat = 0;
+      }
+    } else {
+      repeat = 0;
+    }
+
+    if (dir === 'left') leftRepeat = repeat;
+    else rightRepeat = repeat;
+  }
+
   function rotate(): void {
     const rotated = piece[0].map((_, i) => piece.map((row) => row[i]).reverse());
-    const old = piece;
+    const oldPiece = piece;
+    const oldPx = px;
     piece = rotated;
-    if (collides()) piece = old;
+
+    const kicks = [0, -1, 1, -2, 2];
+    let placed = false;
+    for (const kick of kicks) {
+      px = oldPx + kick;
+      if (!collides()) {
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      piece = oldPiece;
+      px = oldPx;
+    }
   }
 
   function update(dt: number): void {
@@ -142,25 +207,30 @@ export const createTetris: GameFactory = () => {
       return;
     }
 
-    if (input.isLeft()) {
-      px--;
-      if (collides()) px++;
-    }
-    if (input.isRight()) {
-      px++;
-      if (collides()) px--;
-    }
-    if (input.isDown()) {
-      py++;
-      if (collides()) {
-        py--;
-        merge();
-        clearLines();
-        spawn();
+    handleHorizontal('left', dt);
+    handleHorizontal('right', dt);
+
+    const downHeld = input.isDown();
+    if (downHeld && !wasDown) {
+      softDrop();
+      downRepeat = -DAS_DELAY;
+    } else if (downHeld) {
+      downRepeat += dt;
+      if (downRepeat >= SOFT_DROP_REPEAT) {
+        softDrop();
+        downRepeat = 0;
       }
+    } else {
+      downRepeat = 0;
     }
-    if (input.isUp()) rotate();
+
+    if (input.isUp() && !wasUp) rotate();
     if (input.isActionJustPressed()) hardDrop();
+
+    wasLeft = input.isLeft();
+    wasRight = input.isRight();
+    wasUp = input.isUp();
+    wasDown = downHeld;
 
     dropTimer += dt;
     if (dropTimer >= dropInterval) {
@@ -234,7 +304,7 @@ export const createTetris: GameFactory = () => {
       resetBoard();
       score = 0;
       level = 1;
-      dropInterval = 0.8;
+      dropInterval = 1;
       status = 'idle';
       emit();
     },
@@ -242,8 +312,15 @@ export const createTetris: GameFactory = () => {
       resetBoard();
       score = 0;
       level = 1;
-      dropInterval = 0.8;
+      dropInterval = 1;
       dropTimer = 0;
+      leftRepeat = 0;
+      rightRepeat = 0;
+      downRepeat = 0;
+      wasLeft = false;
+      wasRight = false;
+      wasUp = false;
+      wasDown = false;
       spawn();
       status = 'playing';
       input.attach();
