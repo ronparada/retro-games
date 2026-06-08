@@ -6,6 +6,7 @@ export class Input {
   private actionPressed = false;
   private actionJustPressed = false;
   private prevAction = false;
+  private prevSpace = false;
 
   private keyHandler = (e: KeyboardEvent) => {
     if (e.type === 'keydown') {
@@ -30,6 +31,7 @@ export class Input {
     this.touchDirection = null;
     this.actionPressed = false;
     this.actionJustPressed = false;
+    this.prevSpace = false;
   }
 
   setTouchDirection(dir: Direction | null): void {
@@ -43,6 +45,7 @@ export class Input {
   endFrame(): void {
     this.actionJustPressed = this.actionPressed && !this.prevAction;
     this.prevAction = this.actionPressed;
+    this.prevSpace = this.keys.has(' ');
   }
 
   isUp(): boolean {
@@ -66,7 +69,8 @@ export class Input {
   }
 
   isActionJustPressed(): boolean {
-    return this.keys.has(' ') || this.actionJustPressed;
+    const spaceJust = this.keys.has(' ') && !this.prevSpace;
+    return spaceJust || this.actionJustPressed;
   }
 
   isPause(): boolean {
